@@ -361,7 +361,7 @@ export default function Sidebar({
           </span>
         </div>
 
-        {/* User profile & Logout */}
+        {/* User profile section */}
         <div className="p-4 border-t border-slate-800/60 bg-slate-950/30 flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex flex-col gap-0.5">
@@ -372,15 +372,6 @@ export default function Sidebar({
                 </span>
               </div>
             </div>
-
-            <button
-              id="logout-btn"
-              onClick={onLogout}
-              className="p-2 rounded-xl border border-slate-800 hover:border-red-500/20 bg-slate-900 text-slate-400 hover:text-red-400 hover:bg-red-950/10 transition-all cursor-pointer active:scale-95 shrink-0"
-              title="Keluar Akun"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
           </div>
 
           {/* Credit status card */}

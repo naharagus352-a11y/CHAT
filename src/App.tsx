@@ -1,12 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { ChatSession, Message, PrayerTimes, LocationData } from "./types";
-import LoginScreen from "./components/LoginScreen";
 import Sidebar from "./components/Sidebar";
 import ChatInterface from "./components/ChatInterface";
 import PrayerTimesInterface from "./components/PrayerTimesInterface";
 import SplashScreen from "./components/SplashScreen";
 import FallingStarsBackground from "./components/FallingStarsBackground";
-import LoginBackground from "./components/LoginBackground";
 import { AnimatePresence, motion } from "motion/react";
 import { X } from "lucide-react";
 
@@ -30,25 +28,32 @@ export default function App() {
 
   // Authentication states
   const [currentUser, setCurrentUser] = useState<string | null>(() => {
-    return localStorage.getItem("ax1om_current_user");
+    const saved = localStorage.getItem("ax1om_current_user");
+    if (saved) return saved;
+    localStorage.setItem("ax1om_current_user", "Ax1omUser");
+    return "Ax1omUser";
   });
   const [userRole, setUserRole] = useState<"STANDAR" | "VIP">("VIP");
-  const [userExpiresAt, setUserExpiresAt] = useState<string | null>(() => {
-    return localStorage.getItem("ax1om_user_expires_at");
-  });
+  const [userExpiresAt, setUserExpiresAt] = useState<string | null>(null);
   const [expiredNotice, setExpiredNotice] = useState<string | null>(null);
   
   // Credit System States
   const [credits, setCredits] = useState<number>(() => {
     const saved = localStorage.getItem("ax1om_user_credits");
-    return saved ? parseInt(saved, 10) : -1;
+    return saved ? parseInt(saved, 10) : 5000;
   });
   const [maxCredits, setMaxCredits] = useState<number>(() => {
     const saved = localStorage.getItem("ax1om_user_max_credits");
-    return saved ? parseInt(saved, 10) : -1;
+    return saved ? parseInt(saved, 10) : 5000;
   });
   const [nextRefresh, setNextRefresh] = useState<string | null>(() => {
-    return localStorage.getItem("ax1om_user_next_refresh");
+    const saved = localStorage.getItem("ax1om_user_next_refresh");
+    if (saved) return saved;
+    const nextDate = new Date();
+    nextDate.setHours(nextDate.getHours() + 1);
+    const iso = nextDate.toISOString();
+    localStorage.setItem("ax1om_user_next_refresh", iso);
+    return iso;
   });
 
   const [showSplash, setShowSplash] = useState(false);
@@ -76,6 +81,28 @@ export default function App() {
       );
     }
   }, []);
+
+  // Sync auto-login credentials on mount with the backend
+  useEffect(() => {
+    const syncLogin = async () => {
+      try {
+        const response = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: "Ax1omUser", visitorId }),
+        });
+        const data = await response.json();
+        if (data.success && data.user) {
+          setCredits(data.user.credits);
+          setMaxCredits(data.user.maxCredits);
+          setNextRefresh(data.user.nextRefresh);
+        }
+      } catch (err) {
+        console.error("Auto login synchronization failed:", err);
+      }
+    };
+    syncLogin();
+  }, [visitorId]);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchEndX, setTouchEndX] = useState<number | null>(null);
 
@@ -694,27 +721,6 @@ export default function App() {
     setNextRefresh(null);
   };
 
-  // Check role/account expiration periodically and auto logout
-  useEffect(() => {
-    const checkExpiration = () => {
-      const expiresAt = localStorage.getItem("ax1om_user_expires_at");
-      if (expiresAt && currentUser) {
-        const expireTime = new Date(expiresAt).getTime();
-        const now = Date.now();
-        if (now > expireTime) {
-          handleLogout();
-          setExpiredNotice("Masa aktif akun/akses VIP Anda telah berakhir! Silakan hubungi Owner untuk melakukan perpanjangan.");
-        }
-      }
-    };
-
-    // Check immediately on mount/user change
-    checkExpiration();
-
-    const interval = setInterval(checkExpiration, 5000);
-    return () => clearInterval(interval);
-  }, [currentUser]);
-
   // Manage currentSessionId when sessions change
   useEffect(() => {
     if (!currentUser) return;
@@ -734,79 +740,6 @@ export default function App() {
   // Retrieve current active session messages
   const activeSession = filteredSessions.find((s) => s.id === currentSessionId);
   const currentMessages = activeSession ? activeSession.messages : [];
-
-  if (!currentUser) {
-    return (
-      <>
-        <LoginBackground />
-        <LoginScreen
-          visitorId={visitorId}
-          onLoginSuccess={handleLoginSuccess}
-        />
-        <AnimatePresence>
-          {expiredNotice && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] w-11/12 max-w-md p-5 bg-slate-900/95 border border-rose-500/40 rounded-2xl shadow-[0_10px_30px_rgba(244,63,94,0.25)] backdrop-blur-md flex flex-col gap-3.5 items-center text-center"
-            >
-              <div className="w-10 h-10 rounded-full bg-rose-950/40 border border-rose-500/20 flex items-center justify-center text-rose-500 animate-pulse">
-                ⚠️
-              </div>
-              <div className="space-y-1">
-                <span className="text-xs font-mono font-black text-rose-400 uppercase tracking-widest">
-                  MASA AKTIF VIP BERAKHIR
-                </span>
-                <p className="text-xs text-slate-300 font-sans leading-relaxed">
-                  {expiredNotice}
-                </p>
-              </div>
-              <button 
-                onClick={() => setExpiredNotice(null)}
-                className="w-full py-2.5 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-mono text-xs font-bold uppercase rounded-xl tracking-wider transition-all cursor-pointer shadow-[0_4px_12px_rgba(244,63,94,0.2)]"
-              >
-                SIAP, MENGERTI
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-
-        {/* Floating notifications on Login Screen */}
-        <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-3 pointer-events-none">
-          <AnimatePresence>
-            {notifications.map((notif) => (
-              <motion.div
-                key={notif.id}
-                initial={{ x: "110%", opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                exit={{ x: "-110%", opacity: 0 }}
-                transition={{ type: "spring", damping: 20, stiffness: 100 }}
-                className="pointer-events-auto bg-slate-900/95 border border-cyan-500/30 shadow-[0_4px_20px_rgba(6,182,212,0.15)] rounded-xl p-4 w-80 flex flex-col gap-1 backdrop-blur-md relative overflow-hidden"
-              >
-                {/* Decorative glow line */}
-                <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-cyan-500 via-indigo-500 to-rose-500" />
-                <div className="flex items-center justify-between text-[10px] font-mono tracking-wider text-cyan-400 uppercase font-bold">
-                  <span>🔔 PESAN OWNER</span>
-                  <div className="flex items-center gap-1.5">
-                    <span>{new Date(notif.timestamp).toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' })}</span>
-                    <button
-                      onClick={() => setNotifications((prev) => prev.filter((n) => n.id !== notif.id))}
-                      className="p-0.5 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-100 transition-colors cursor-pointer"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-                <p className="text-sm text-slate-100 font-sans leading-relaxed break-words">{notif.text}</p>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
-      </>
-    );
-  }
 
   return (
     <>

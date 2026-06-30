@@ -287,7 +287,7 @@ app.post("/api/heartbeat", async (req, res) => {
   res.json({ success: true, messages: relevantMessages });
 });
 
-// API: Login for Regular Users (Password-free, auto-registers or updates to unlimited VIP)
+// API: Login for Regular Users (Password-free, auto-registers or updates to managed VIP)
 app.post("/api/login", (req, res) => {
   const { username, visitorId } = req.body;
   if (!username) {
@@ -299,8 +299,12 @@ app.post("/api/login", (req, res) => {
     (a: any) => a.username.toLowerCase() === username.toLowerCase()
   );
 
+  const nextDate = new Date();
+  nextDate.setHours(nextDate.getHours() + 1);
+  const defaultNextRefresh = nextDate.toISOString();
+
   if (!account) {
-    // Auto-create account with VIP role and lifetime unlimited credits
+    // Auto-create account with VIP role and 5000 managed credits
     account = {
       username,
       password: "",
@@ -309,21 +313,22 @@ app.post("/api/login", (req, res) => {
       role: "VIP",
       expiresAt: null,
       duration: "LIFETIME",
-      credits: -1,
-      maxCredits: -1,
-      nextRefresh: null
+      credits: 5000,
+      maxCredits: 5000,
+      nextRefresh: defaultNextRefresh
     };
     accounts.push(account);
     writeAccounts(accounts);
   } else {
-    // Ensure existing accounts are active, upgraded to VIP, and have unlimited/lifetime credits
+    // Ensure existing accounts are active, upgraded to VIP, and have 5000 managed credits
     let modified = false;
     if (!account.active) { account.active = true; modified = true; }
     if (account.role !== "VIP") { account.role = "VIP"; modified = true; }
-    if (account.credits !== -1) { account.credits = -1; modified = true; }
-    if (account.maxCredits !== -1) { account.maxCredits = -1; modified = true; }
+    if (account.credits === -1 || account.credits === undefined) { account.credits = 5000; modified = true; }
+    if (account.maxCredits === -1 || account.maxCredits === undefined) { account.maxCredits = 5000; modified = true; }
     if (account.expiresAt !== null) { account.expiresAt = null; modified = true; }
     if (account.duration !== "LIFETIME") { account.duration = "LIFETIME"; modified = true; }
+    if (!account.nextRefresh) { account.nextRefresh = defaultNextRefresh; modified = true; }
 
     if (modified) {
       writeAccounts(accounts);
@@ -353,9 +358,9 @@ app.post("/api/login", (req, res) => {
       createdAt: account.createdAt,
       role: "VIP",
       expiresAt: null,
-      credits: -1,
-      maxCredits: -1,
-      nextRefresh: null
+      credits: account.credits,
+      maxCredits: account.maxCredits,
+      nextRefresh: account.nextRefresh
     }
   });
 });
