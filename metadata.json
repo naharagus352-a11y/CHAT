@@ -1,0 +1,6 @@
+{
+  "name": "AX1OM BOT",
+  "description": "Website AI Chatbot AX1OM BOT yang dilengkapi dengan jam digital real-time, jadwal waktu sholat akurat otomatis (GPS/IP), pengingat alarm beep, dan AI chat asisten cepat.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
