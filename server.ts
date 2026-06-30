@@ -49,27 +49,42 @@ setInterval(() => {
   pendingMessages = pendingMessages.filter((m) => m.createdAt > msgCutoff);
 }, 30000);
 
-// Ensure accounts.json exists
-if (!fs.existsSync(ACCOUNTS_FILE)) {
-  fs.writeFileSync(ACCOUNTS_FILE, JSON.stringify([], null, 2));
-}
+let inMemoryAccounts: any[] | null = null;
 
-// Read and write helper functions for accounts.json
-function readAccounts() {
+// Ensure accounts.json exists (only write if not on Vercel)
+if (!fs.existsSync(ACCOUNTS_FILE) && !process.env.VERCEL) {
   try {
-    const data = fs.readFileSync(ACCOUNTS_FILE, "utf-8");
-    return JSON.parse(data);
-  } catch (error) {
-    console.error("Error reading accounts file, resetting:", error);
-    return [];
+    fs.writeFileSync(ACCOUNTS_FILE, JSON.stringify([], null, 2));
+  } catch (err) {
+    console.warn("Could not write initial accounts.json file:", err);
   }
 }
 
+// Read and write helper functions for accounts.json with in-memory cache fallback
+function readAccounts() {
+  if (inMemoryAccounts !== null) {
+    return inMemoryAccounts;
+  }
+  try {
+    if (fs.existsSync(ACCOUNTS_FILE)) {
+      const data = fs.readFileSync(ACCOUNTS_FILE, "utf-8");
+      inMemoryAccounts = JSON.parse(data);
+    } else {
+      inMemoryAccounts = [];
+    }
+  } catch (error) {
+    console.error("Error reading accounts file, resetting:", error);
+    inMemoryAccounts = [];
+  }
+  return inMemoryAccounts;
+}
+
 function writeAccounts(accounts: any[]) {
+  inMemoryAccounts = accounts;
   try {
     fs.writeFileSync(ACCOUNTS_FILE, JSON.stringify(accounts, null, 2));
   } catch (error) {
-    console.error("Error writing accounts file:", error);
+    console.error("Error writing accounts file (expected on Vercel):", error);
   }
 }
 
@@ -794,4 +809,8 @@ async function startServer() {
   });
 }
 
-startServer();
+if (!process.env.VERCEL) {
+  startServer();
+}
+
+export default app;
