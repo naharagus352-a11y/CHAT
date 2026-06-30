@@ -370,13 +370,6 @@ export default function Sidebar({
                 <span className="text-sm font-mono font-bold text-slate-200 truncate block">
                   {currentUser}
                 </span>
-                <span className={`text-[8px] font-mono font-extrabold px-1.5 py-0.5 rounded select-none ${
-                  userRole === "VIP"
-                    ? "bg-rose-950/60 text-rose-400 border border-rose-500/30 shadow-[0_0_8px_rgba(244,63,94,0.2)]"
-                    : "bg-slate-900 text-slate-400 border border-slate-800"
-                }`}>
-                  {userRole}
-                </span>
               </div>
             </div>
 

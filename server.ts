@@ -154,110 +154,6 @@ function refreshAccountCreditsIfNeeded(account: any): boolean {
 
 app.use(express.json());
 
-// API: Owner Authentication
-app.post("/api/owner/auth", (req, res) => {
-  const { password } = req.body;
-  if (password === "161071") {
-    return res.json({ success: true, ownerToken: "AX1OM_OWNER_SECURE_TOKEN_2026" });
-  }
-  return res.status(401).json({ success: false, error: "Password Owner Salah!" });
-});
-
-// Middleware: Validate Owner Token
-const requireOwner = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  const authHeader = req.headers.authorization;
-  if (authHeader === "Bearer AX1OM_OWNER_SECURE_TOKEN_2026") {
-    next();
-  } else {
-    res.status(403).json({ success: false, error: "Akses ditolak. Token tidak valid." });
-  }
-};
-
-function getExpirationDate(duration: string | undefined): string | null {
-  if (!duration || duration === "LIFETIME") return null;
-  const now = new Date();
-  if (duration === "1_HARI") {
-    now.setDate(now.getDate() + 1);
-  } else if (duration === "7_HARI") {
-    now.setDate(now.getDate() + 7);
-  } else if (duration === "30_HARI" || duration === "BULAN") {
-    now.setDate(now.getDate() + 30);
-  } else if (duration === "100_HARI") {
-    now.setDate(now.getDate() + 100);
-  } else {
-    return null;
-  }
-  return now.toISOString();
-}
-
-// API: Manage Accounts (Owner Only)
-app.get("/api/owner/accounts", requireOwner, (req, res) => {
-  const accounts = readAccounts();
-  res.json({ success: true, accounts });
-});
-
-app.post("/api/owner/accounts", requireOwner, (req, res) => {
-  const { username, password, active, role, duration } = req.body;
-  if (!username || !password) {
-    return res.status(400).json({ success: false, error: "Username dan password wajib diisi!" });
-  }
-
-  const accounts = readAccounts();
-  const existingIndex = accounts.findIndex((a: any) => a.username.toLowerCase() === username.toLowerCase());
-
-  const selectedDuration = duration || "LIFETIME";
-  const initial = getInitialCreditsForDuration(selectedDuration);
-
-  let nextRefreshVal = null;
-  if (initial.maxCredits !== -1) {
-    const nextDate = new Date();
-    nextDate.setHours(nextDate.getHours() + 7);
-    nextRefreshVal = nextDate.toISOString();
-  }
-
-  if (existingIndex > -1) {
-    // Update existing account
-    accounts[existingIndex].password = password !== "unmodified" ? password : accounts[existingIndex].password;
-    accounts[existingIndex].active = active !== undefined ? active : true;
-    if (role !== undefined) {
-      accounts[existingIndex].role = role;
-    }
-    if (duration !== undefined) {
-      accounts[existingIndex].expiresAt = getExpirationDate(duration);
-      accounts[existingIndex].duration = selectedDuration;
-      accounts[existingIndex].credits = initial.credits;
-      accounts[existingIndex].maxCredits = initial.maxCredits;
-      accounts[existingIndex].nextRefresh = nextRefreshVal;
-    }
-    accounts[existingIndex].updatedAt = new Date().toISOString();
-  } else {
-    // Add new account
-    accounts.push({
-      username,
-      password,
-      active: active !== undefined ? active : true,
-      role: role || "STANDAR",
-      expiresAt: getExpirationDate(selectedDuration),
-      duration: selectedDuration,
-      credits: initial.credits,
-      maxCredits: initial.maxCredits,
-      nextRefresh: nextRefreshVal,
-      createdAt: new Date().toISOString()
-    });
-  }
-
-  writeAccounts(accounts);
-  res.json({ success: true, accounts });
-});
-
-app.delete("/api/owner/accounts/:username", requireOwner, (req, res) => {
-  const { username } = req.params;
-  let accounts = readAccounts();
-  accounts = accounts.filter((a: any) => a.username.toLowerCase() !== username.toLowerCase());
-  writeAccounts(accounts);
-  res.json({ success: true, accounts });
-});
-
 
 
 // Helper to resolve location from IP using a public API
@@ -391,54 +287,47 @@ app.post("/api/heartbeat", async (req, res) => {
   res.json({ success: true, messages: relevantMessages });
 });
 
-// API: Get Active Visitors (Owner Only)
-app.get("/api/owner/active-visitors", requireOwner, (req, res) => {
-  const now = Date.now();
-  const activeList = Object.values(activeVisitors).filter(
-    (v) => now - v.lastActive < 40000
-  );
-  res.json({ success: true, visitors: activeList });
-});
-
-// API: Send message to user / broadcast (Owner Only)
-app.post("/api/owner/send-message", requireOwner, (req, res) => {
-  const { text, targetUser, targetVisitorId, broadcast } = req.body;
-  if (!text) {
-    return res.status(400).json({ success: false, error: "Pesan tidak boleh kosong!" });
-  }
-
-  const msgId = "msg_" + Math.random().toString(36).substring(2, 15);
-  const newMessage: PendingMessage = {
-    id: msgId,
-    text,
-    sender: "Owner",
-    targetUser: targetUser || undefined,
-    targetVisitorId: targetVisitorId || undefined,
-    broadcast: !!broadcast,
-    createdAt: Date.now(),
-  };
-
-  pendingMessages.push(newMessage);
-  res.json({ success: true, message: "Pesan berhasil dikirim ke antrean!" });
-});
-
-// API: Login for Regular Users
+// API: Login for Regular Users (Password-free, auto-registers or updates to unlimited VIP)
 app.post("/api/login", (req, res) => {
-  const { username, password, role, visitorId } = req.body;
-  if (!username || !password) {
-    return res.status(400).json({ success: false, error: "Username dan password harus diisi!" });
+  const { username, visitorId } = req.body;
+  if (!username) {
+    return res.status(400).json({ success: false, error: "Username harus diisi!" });
   }
 
   const accounts = readAccounts();
-  const account = accounts.find(
-    (a: any) => a.username.toLowerCase() === username.toLowerCase() && a.password === password
+  let account = accounts.find(
+    (a: any) => a.username.toLowerCase() === username.toLowerCase()
   );
 
   if (!account) {
-    return res.json({
-      success: false,
-      error: "Akun belum terdaftar atau password salah! Hubungi owner."
-    });
+    // Auto-create account with VIP role and lifetime unlimited credits
+    account = {
+      username,
+      password: "",
+      active: true,
+      createdAt: new Date().toISOString(),
+      role: "VIP",
+      expiresAt: null,
+      duration: "LIFETIME",
+      credits: -1,
+      maxCredits: -1,
+      nextRefresh: null
+    };
+    accounts.push(account);
+    writeAccounts(accounts);
+  } else {
+    // Ensure existing accounts are active, upgraded to VIP, and have unlimited/lifetime credits
+    let modified = false;
+    if (!account.active) { account.active = true; modified = true; }
+    if (account.role !== "VIP") { account.role = "VIP"; modified = true; }
+    if (account.credits !== -1) { account.credits = -1; modified = true; }
+    if (account.maxCredits !== -1) { account.maxCredits = -1; modified = true; }
+    if (account.expiresAt !== null) { account.expiresAt = null; modified = true; }
+    if (account.duration !== "LIFETIME") { account.duration = "LIFETIME"; modified = true; }
+
+    if (modified) {
+      writeAccounts(accounts);
+    }
   }
 
   // Enforce 1 account 1 person check during login
@@ -457,46 +346,16 @@ app.post("/api/login", (req, res) => {
     }
   }
 
-  if (account.expiresAt && new Date() > new Date(account.expiresAt)) {
-    return res.json({
-      success: false,
-      error: "Masa aktif akun/akses Anda telah kedaluwarsa! Hubungi owner."
-    });
-  }
-
-  if (!account.active) {
-    return res.json({
-      success: false,
-      error: "Akun Anda dinonaktifkan oleh owner!"
-    });
-  }
-
-  const accountRole = account.role || "STANDAR";
-
-  // If user selected VIP but their account is STANDAR, deny
-  if (role === "VIP" && accountRole !== "VIP") {
-    return res.json({
-      success: false,
-      error: "Akun Anda berstatus STANDAR! Hubungi Owner untuk upgrade ke VIP agar dapat masuk sebagai VIP."
-    });
-  }
-
-  // Refresh credits if needed
-  const wasRefreshed = refreshAccountCreditsIfNeeded(account);
-  if (wasRefreshed) {
-    writeAccounts(accounts);
-  }
-
   res.json({
     success: true,
     user: {
       username: account.username,
       createdAt: account.createdAt,
-      role: accountRole,
-      expiresAt: account.expiresAt || null,
-      credits: account.credits !== undefined ? account.credits : -1,
-      maxCredits: account.maxCredits !== undefined ? account.maxCredits : -1,
-      nextRefresh: account.nextRefresh || null
+      role: "VIP",
+      expiresAt: null,
+      credits: -1,
+      maxCredits: -1,
+      nextRefresh: null
     }
   });
 });

@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { ChatSession, Message, PrayerTimes, LocationData } from "./types";
 import LoginScreen from "./components/LoginScreen";
-import OwnerPanel from "./components/OwnerPanel";
 import Sidebar from "./components/Sidebar";
 import ChatInterface from "./components/ChatInterface";
 import PrayerTimesInterface from "./components/PrayerTimesInterface";
@@ -33,9 +32,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<string | null>(() => {
     return localStorage.getItem("ax1om_current_user");
   });
-  const [userRole, setUserRole] = useState<"STANDAR" | "VIP">((() => {
-    return (localStorage.getItem("ax1om_user_role") as "STANDAR" | "VIP") || "STANDAR";
-  }));
+  const [userRole, setUserRole] = useState<"STANDAR" | "VIP">("VIP");
   const [userExpiresAt, setUserExpiresAt] = useState<string | null>(() => {
     return localStorage.getItem("ax1om_user_expires_at");
   });
@@ -54,7 +51,6 @@ export default function App() {
     return localStorage.getItem("ax1om_user_next_refresh");
   });
 
-  const [isOwnerOpen, setIsOwnerOpen] = useState(false);
   const [showSplash, setShowSplash] = useState(false);
 
   // Layout & Touch states
@@ -719,25 +715,21 @@ export default function App() {
     return () => clearInterval(interval);
   }, [currentUser]);
 
-  // Manage currentSessionId when userRole or sessions change to prevent cross-role leaks
+  // Manage currentSessionId when sessions change
   useEffect(() => {
     if (!currentUser) return;
-    const validSessions = sessions.filter((s) => (s.role || "STANDAR") === userRole);
-    const hasCurrent = validSessions.some((s) => s.id === currentSessionId);
+    const hasCurrent = sessions.some((s) => s.id === currentSessionId);
     if (!hasCurrent) {
-      if (validSessions.length > 0) {
-        setCurrentSessionId(validSessions[0].id);
+      if (sessions.length > 0) {
+        setCurrentSessionId(sessions[0].id);
       } else {
         setCurrentSessionId("");
       }
     }
-  }, [userRole, sessions, currentSessionId, currentUser]);
+  }, [sessions, currentSessionId, currentUser]);
 
-  // Filter sessions based on current user role to completely separate the chat history
-  const filteredSessions = sessions.filter((s) => {
-    const sessionRole = s.role || "STANDAR";
-    return sessionRole === userRole;
-  });
+  // Use all sessions without role filtering
+  const filteredSessions = sessions;
 
   // Retrieve current active session messages
   const activeSession = filteredSessions.find((s) => s.id === currentSessionId);
@@ -750,7 +742,6 @@ export default function App() {
         <LoginScreen
           visitorId={visitorId}
           onLoginSuccess={handleLoginSuccess}
-          onOpenOwner={() => setIsOwnerOpen(true)}
         />
         <AnimatePresence>
           {expiredNotice && (
@@ -780,11 +771,7 @@ export default function App() {
             </motion.div>
           )}
         </AnimatePresence>
-        <AnimatePresence>
-          {isOwnerOpen && (
-            <OwnerPanel onClose={() => setIsOwnerOpen(false)} />
-          )}
-        </AnimatePresence>
+
 
         {/* Floating notifications on Login Screen */}
         <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-3 pointer-events-none">

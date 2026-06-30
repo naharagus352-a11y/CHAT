@@ -215,7 +215,6 @@ export default function ChatInterface({
   const [showSpotify, setShowSpotify] = useState(false);
   const [musicPlayerMode, setMusicPlayerMode] = useState<"youtube" | "spotify">("youtube");
   const [hasActivatedPlayer, setHasActivatedPlayer] = useState(false);
-  const [showVipModal, setShowVipModal] = useState(false);
   const [completedTypingIds, setCompletedTypingIds] = useState<Set<string>>(new Set());
 
   // Playlist of cyber atmospheric/requested music tracks
@@ -477,29 +476,25 @@ export default function ChatInterface({
           {/* DARK AX1OM Mode Toggle Switch */}
           <button
             onClick={() => {
-              if (userRole !== "VIP" && !isDarkAx1om) {
-                setShowVipModal(true);
+              if (!isDarkAx1om) {
+                setIsDarkTransitioning(true);
+                setDarkTransitionText("");
+                const fullText = "AX1OM> DEVELOPERS LINIX PROJECT>LOADING";
+                let index = 0;
+                const timer = setInterval(() => {
+                  if (index < fullText.length) {
+                    setDarkTransitionText(fullText.substring(0, index + 1));
+                    index++;
+                  } else {
+                    clearInterval(timer);
+                    setTimeout(() => {
+                      setIsDarkAx1om(true);
+                      setIsDarkTransitioning(false);
+                    }, 750);
+                  }
+                }, 40);
               } else {
-                if (!isDarkAx1om) {
-                  setIsDarkTransitioning(true);
-                  setDarkTransitionText("");
-                  const fullText = "AX1OM> DEVELOPERS LINIX PROJECT>LOADING";
-                  let index = 0;
-                  const timer = setInterval(() => {
-                    if (index < fullText.length) {
-                      setDarkTransitionText(fullText.substring(0, index + 1));
-                      index++;
-                    } else {
-                      clearInterval(timer);
-                      setTimeout(() => {
-                        setIsDarkAx1om(true);
-                        setIsDarkTransitioning(false);
-                      }, 750);
-                    }
-                  }, 40);
-                } else {
-                  setIsDarkAx1om(false);
-                }
+                setIsDarkAx1om(false);
               }
             }}
             className={`px-3 py-1.5 rounded-lg border flex items-center gap-1.5 text-[10px] font-mono tracking-wider transition-all cursor-pointer relative overflow-hidden select-none ${
@@ -1166,50 +1161,6 @@ export default function ChatInterface({
         </div>
       </div>
 
-      {/* VIP Premium Modal Overlay */}
-      <AnimatePresence>
-        {showVipModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            id="vip-modal-overlay"
-            className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              id="vip-modal-content"
-              className="w-full max-w-md bg-slate-900 border border-rose-500/30 rounded-2xl p-6 text-center shadow-[0_0_50px_rgba(244,63,94,0.15)] space-y-5"
-            >
-              <div className="mx-auto w-16 h-16 bg-rose-950/30 border border-rose-500/20 rounded-full flex items-center justify-center text-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.2)] animate-pulse">
-                <Skull className="w-8 h-8" />
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="text-lg font-bold font-mono text-rose-400 uppercase tracking-wide">
-                  👿 FITUR KHUSUS VIP AKSES
-                </h3>
-                <p className="text-xs font-mono text-slate-500 uppercase tracking-widest">
-                  DARK AX1OM UNRESTRICTED SYSTEM
-                </p>
-              </div>
-
-              <p className="text-xs text-slate-300 leading-relaxed font-sans">
-                Mode <strong className="text-rose-400 font-mono">DARK AX1OM</strong> merupakan sistem khusus tanpa batasan (uncensored core). Fitur ini hanya dapat diakses oleh pengguna dengan status <strong className="text-rose-400 font-mono">VIP</strong>. Hubungi Owner / Administrator untuk mengupgrade status akun Anda.
-              </p>
-
-              <button
-                onClick={() => setShowVipModal(false)}
-                className="w-full py-3 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-mono text-xs font-bold uppercase rounded-xl tracking-wider transition-all cursor-pointer shadow-[0_4px_15px_rgba(244,63,94,0.2)]"
-              >
-                SIAP, DIMENGERTI
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Shield, Lock, User, Key, Eye, EyeOff, Terminal, Loader2, Info, Fingerprint, Cpu, Sparkles } from "lucide-react";
+import { User, Key, Terminal, Loader2, Info, Fingerprint, Cpu, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 interface LoginScreenProps {
@@ -12,22 +12,18 @@ interface LoginScreenProps {
     maxCredits: number,
     nextRefresh: string | null
   ) => void;
-  onOpenOwner: () => void;
 }
 
-export default function LoginScreen({ visitorId, onLoginSuccess, onOpenOwner }: LoginScreenProps) {
+export default function LoginScreen({ visitorId, onLoginSuccess }: LoginScreenProps) {
   const [showForm, setShowForm] = useState(false);
   const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"STANDAR" | "VIP">("STANDAR");
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username || !password) {
-      setError("Username dan password harus diisi!");
+    if (!username) {
+      setError("Username harus diisi!");
       return;
     }
 
@@ -38,7 +34,7 @@ export default function LoginScreen({ visitorId, onLoginSuccess, onOpenOwner }: 
       const response = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, role, visitorId }),
+        body: JSON.stringify({ username, visitorId }),
       });
 
       const data = await response.json();
@@ -209,66 +205,6 @@ export default function LoginScreen({ visitorId, onLoginSuccess, onOpenOwner }: 
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-mono text-slate-400 uppercase tracking-wider mb-2">
-                  PASSWORD
-                </label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-500">
-                    <Lock className="w-4.5 h-4.5" />
-                  </span>
-                  <input
-                    id="password-input"
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full bg-slate-950/80 border border-slate-800 rounded-xl py-3 pl-11 pr-11 text-slate-100 placeholder:text-slate-600 text-sm focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30 transition-all font-mono"
-                  />
-                  <button
-                    type="button"
-                    id="toggle-password-btn"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-500 hover:text-slate-300 transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Role selection buttons */}
-              <div>
-                <label className="block text-xs font-mono text-slate-400 uppercase tracking-wider mb-2">
-                  PILIH ROLE AKSES MASUK
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    id="role-standar-btn"
-                    onClick={() => setRole("STANDAR")}
-                    className={`py-2.5 px-4 rounded-xl border font-mono text-xs font-bold uppercase transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer ${
-                      role === "STANDAR"
-                        ? "bg-cyan-950/40 border-cyan-500/50 text-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.15)]"
-                        : "bg-slate-950/40 border-slate-800 text-slate-500 hover:text-slate-300"
-                    }`}
-                  >
-                    <span>👤 STANDAR</span>
-                  </button>
-                  <button
-                    type="button"
-                    id="role-vip-btn"
-                    onClick={() => setRole("VIP")}
-                    className={`py-2.5 px-4 rounded-xl border font-mono text-xs font-bold uppercase transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer ${
-                      role === "VIP"
-                        ? "bg-rose-950/40 border-rose-500/50 text-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.15)]"
-                        : "bg-slate-950/40 border-slate-800 text-slate-500 hover:text-rose-400"
-                    }`}
-                  >
-                    <span>👿 VIP AKSES</span>
-                  </button>
-                </div>
-              </div>
-
               {/* Submit button */}
               <button
                 type="submit"
@@ -289,27 +225,6 @@ export default function LoginScreen({ visitorId, onLoginSuccess, onOpenOwner }: 
                 )}
               </button>
             </form>
-
-            {/* Divider */}
-            <div className="relative my-8">
-              <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                <div className="w-full border-t border-slate-800/80"></div>
-              </div>
-              <div className="relative flex justify-center text-xs uppercase font-mono tracking-widest">
-                <span className="bg-slate-900 px-3 text-slate-500">OWNER CORE</span>
-              </div>
-            </div>
-
-            {/* Special Owner Access Button */}
-            <button
-              type="button"
-              id="owner-access-trigger-btn"
-              onClick={onOpenOwner}
-              className="w-full py-3 px-4 rounded-xl border border-dashed border-slate-800 hover:border-cyan-500/40 bg-slate-950/40 hover:bg-cyan-950/10 text-xs font-mono tracking-wider text-slate-400 hover:text-cyan-400 transition-all flex items-center justify-center gap-2.5 cursor-pointer"
-            >
-              <Shield className="w-4 h-4" />
-              AKSES KHUSUS OWNER
-            </button>
           </motion.div>
         )}
       </AnimatePresence>
